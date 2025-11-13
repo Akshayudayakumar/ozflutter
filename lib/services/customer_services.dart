@@ -30,6 +30,8 @@ class CustomerServices {
     String? id,
     double? latitudeValue,
     double? longitudeValue,
+    required String customerRate,
+    required String remarks
   }) async {
     String latitude = '';
     String longitude = '';
@@ -40,7 +42,9 @@ class CustomerServices {
       await locationResult.fold((data) {
         latitude = data.latitude.toString();
         longitude = data.longitude.toString();
-      }, (error) {});
+      }, (error) {
+        print('Error getting location: $error');
+      });
     } else {
       latitude = latitudeValue.toString();
       longitude = longitudeValue.toString();
@@ -55,8 +59,11 @@ class CustomerServices {
       'longitude': longitude,
       'type': type,
       'area': area,
-      'price_list': priceList
+      'price_list': priceList,
+      'customer_rate': customerRate,
+      'remarks': remarks,
     };
+    print('customer: $formData');
     if (id != null) {
       formData['id'] = id;
     }

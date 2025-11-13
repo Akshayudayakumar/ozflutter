@@ -43,8 +43,10 @@ class CustomersController extends GetxController {
         area: customer.area ?? '',
         priceList: customer.priceList ?? '',
         type: customer.type ?? '',
+        customerRate: customer.customerRate ?? '',
         latitude: latitude,
-        longitude: longitude);
+        longitude: longitude,
+        remarks: customer.remarks ?? '');
   }
 
   Future<void> getCustomers() async {
@@ -52,12 +54,12 @@ class CustomersController extends GetxController {
     final noNameCustomers = customers
         .where(
           (element) => element.name?.isEmpty ?? false,
-        )
+    )
         .toList();
     final nameCustomers = customers
         .where(
           (element) => element.name?.isNotEmpty ?? false,
-        )
+    )
         .toList();
     nameCustomers.sort((a, b) => (a.name?.compareTo(b.name ?? '') ?? 0));
     customers = [...nameCustomers, ...noNameCustomers];
@@ -91,20 +93,20 @@ class CustomersController extends GetxController {
     filteredCustomers = customers
         .where(
           (customer) =>
-              (customer.name?.toLowerCase().contains(query) ?? false) ||
-              (customer.id?.toLowerCase().contains(query) ?? false) ||
-              (customer.branch?.toLowerCase().contains(query) ?? false) ||
-              (customer.details?.toLowerCase().contains(query) ?? false) ||
-              (customer.email?.toLowerCase().contains(query) ?? false) ||
-              (customer.area?.toLowerCase().contains(query) ?? false) ||
-              (customer.contactNumber?.toLowerCase().contains(query) ??
-                  false) ||
-              (customer.contactPerson?.toLowerCase().contains(query) ??
-                  false) ||
-              (customer.district?.toLowerCase().contains(query) ?? false) ||
-              (customer.phone?.toLowerCase().contains(query) ?? false) ||
-              (customer.pincode?.toLowerCase().contains(query) ?? false),
-        )
+      (customer.name?.toLowerCase().contains(query) ?? false) ||
+          (customer.id?.toLowerCase().contains(query) ?? false) ||
+          (customer.branch?.toLowerCase().contains(query) ?? false) ||
+          (customer.details?.toLowerCase().contains(query) ?? false) ||
+          (customer.email?.toLowerCase().contains(query) ?? false) ||
+          (customer.area?.toLowerCase().contains(query) ?? false) ||
+          (customer.contactNumber?.toLowerCase().contains(query) ??
+              false) ||
+          (customer.contactPerson?.toLowerCase().contains(query) ??
+              false) ||
+          (customer.district?.toLowerCase().contains(query) ?? false) ||
+          (customer.phone?.toLowerCase().contains(query) ?? false) ||
+          (customer.pincode?.toLowerCase().contains(query) ?? false),
+    )
         .toList();
     update();
   }

@@ -2,9 +2,10 @@ import 'package:animations/animations.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:ozone_erp/screens/neworder/widgets/loading_widget.dart';
+import 'package:ozone_erp/screens/neworder/widgets/order_total_details.dart';
 import 'package:ozone_erp/screens/sync/controller/sync_controller.dart';
 import 'package:ozone_erp/widgets/pop/pop_blocker.dart';
-
 import '../../../components/export_components.dart';
 import '../../../constants/constant.dart';
 import '../controller/new_order_controller.dart';
@@ -17,21 +18,14 @@ class NewOrderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: customAppBar(
-        title: 'Sales Order',
-        whiteIcon: true,
-        sync: () async {
-          await Get.put(SyncController()).saveSync(SyncTypes.order);
-          final controller = Get.find<NewOrderController>();
-          await controller.getItems();
-          await controller.getUnits();
-          await controller.getCategories();
-        },
-        refresh: () async {
-          final controller = Get.find<NewOrderController>();
-          await controller.getItems();
-          await controller.getUnits();
-          await controller.getCategories();
-        },
+          title: 'SALES ORDER',
+          whiteIcon: true,
+          sync: () async{
+            final syncController = Get.find<SyncController>();
+            await syncController.saveSync(SyncTypes.order);
+            await Get.find<NewOrderController>().refreshAllData();
+          },
+          refresh: () => Get.find<NewOrderController>().refreshAllData()
       ),
       drawer: const CustomMenu(),
       body: GetBuilder<NewOrderController>(
@@ -53,42 +47,18 @@ class NewOrderScreen extends StatelessWidget {
                     ? const NewOrderView()
                     : const OrderItemsView(),
               ),
-              Obx(
-                () {
-                  return controller.ordering.value.isEmpty
-                      ? const SizedBox.shrink()
-                      : Container(
-                          height: SizeConstant.screenHeight,
-                          width: SizeConstant.screenWidth,
-                          color: Colors.black38,
-                          alignment: Alignment.center,
-                          child: Container(
-                              height: SizeConstant.screenHeight * .1,
-                              width: SizeConstant.screenWidth * .8,
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                children: [
-                                  const CircularProgressIndicator(),
-                                  const SizedBox(
-                                    width: 20,
-                                  ),
-                                  Text(controller.ordering.value),
-                                ],
-                              )),
-                        );
-                },
-              ),
+              Obx(() => LoadingWidget(
+                  isLoading: controller.ordering.value.isNotEmpty,
+                  message: controller.ordering.value)),
             ],
           );
         },
       ),
       bottomNavigationBar:
-          GetBuilder<NewOrderController>(builder: (controller) {
+      GetBuilder<NewOrderController>(builder: (controller) {
         return BottomNavigationBar(
+            selectedFontSize: 15,
+            unselectedFontSize: 12,
             items: [
               BottomNavigationBarItem(
                   icon: Padding(
@@ -106,29 +76,35 @@ class NewOrderScreen extends StatelessWidget {
                   ),
                   label: 'Items'),
               BottomNavigationBarItem(
-                  icon: Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(CupertinoIcons.cart),
+                  icon: Badge(
+                    label: Obx(() => Text(
+                      controller.addedItems.length.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
-                      if (controller.addedItems.isNotEmpty)
-                        CircleAvatar(
-                          backgroundColor: Colors.red,
-                          radius: 10,
-                          child: Text(
-                            controller.addedItems.length.toString(),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 14),
-                          ),
-                        )
-                    ],
+                    ),
+                    ),
+                    backgroundColor: Colors.red,
+                    isLabelVisible: controller.addedItems.isNotEmpty,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: 8.0,
+                        bottom: 8.0,
+                        left: 8.0,
+                        right: 12.0, // To avoid badge overlapping the icon
+                      ),
+                      child:
+                      const Icon(CupertinoIcons.cart, size: 22),
+                    ),
                   ),
                   label: 'Cart'),
             ],
             selectedItemColor: AppStyle.primaryColor,
             currentIndex: controller.screenIndex,
+            type: BottomNavigationBarType.fixed,
+            unselectedItemColor: Colors.black54,
             onTap: (value) {
               controller.updateScreenIndex(value);
             });
@@ -157,12 +133,7 @@ class NewOrderView extends GetView<NewOrderController> {
           },
           child: Scaffold(
             body: RefreshIndicator(
-              onRefresh: () async {
-                await controller.getItems();
-                await controller.getUnits();
-                await controller.getCategories();
-                await Future.delayed(const Duration(seconds: 1));
-              },
+              onRefresh: controller.refreshAllData,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -177,43 +148,43 @@ class NewOrderView extends GetView<NewOrderController> {
                   ),
                   const OrdersFilterTypes(),
                   Obx(
-                    () {
+                        () {
                       return controller.sortValue.value.isEmpty
                           ? const SizedBox.shrink()
                           : Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 18.0, vertical: 12),
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(40),
-                                      color: AppStyle.radioColor),
-                                  child: Text(
-                                    controller.sortValue.value,
-                                    style: const TextStyle(color: Colors.white),
-                                  )),
-                            );
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18.0, vertical: 12),
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(40),
+                                color: AppStyle.radioColor),
+                            child: Text(
+                              controller.sortValue.value,
+                              style: const TextStyle(color: Colors.white),
+                            )),
+                      );
                     },
                   ),
                   Obx(
-                    () {
+                        () {
                       return controller.filterValue.value.isEmpty
                           ? const SizedBox.shrink()
                           : Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 18.0, vertical: 12),
-                              alignment: Alignment.centerRight,
-                              child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(40),
-                                      color: AppStyle.radioColor),
-                                  child: Text(
-                                    controller.filterValue.value,
-                                    style: const TextStyle(color: Colors.white),
-                                  )),
-                            );
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18.0, vertical: 12),
+                        alignment: Alignment.centerRight,
+                        child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(40),
+                                color: AppStyle.radioColor),
+                            child: Text(
+                              controller.filterValue.value,
+                              style: const TextStyle(color: Colors.white),
+                            )),
+                      );
                     },
                   ),
                   const SizedBox(
@@ -238,19 +209,27 @@ class OrderItemsView extends GetView<NewOrderController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: controller.addedItems.isEmpty
-          ? const Center(
-              child: Text('Please add some items to cart'),
-            )
-          : RefreshIndicator(
-              onRefresh: () async {
-                await controller.getItems();
-                await controller.getUnits();
-                await controller.getCategories();
-                await Future.delayed(const Duration(seconds: 1));
-              },
+    return PopBlocker(
+      canPop: controller.bodyJson != null,
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: PopScope(
+          canPop: !controller.focusNode.hasFocus,
+          onPopInvoked: (didpop) {
+            if (didpop) {
+              return;
+            }
+            controller.focusNode.unfocus();
+          },
+          child: Scaffold(
+            body: controller.addedItems.isEmpty
+                ? const Center(
+              child: const Text('Please add some items to cart'),):
+
+            RefreshIndicator(
+              onRefresh: controller.refreshAllData,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const OrderInvoiceRow(),
                   SizedBox(
@@ -268,13 +247,15 @@ class OrderItemsView extends GetView<NewOrderController> {
                   SizedBox(
                     height: SizeConstant.screenHeight * .01,
                   ),
+                  OrderTotalDetails(),
                   const OrderButtonsRow(),
-                  SizedBox(
-                    height: SizeConstant.screenHeight * .04,
-                  )
+
                 ],
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 }

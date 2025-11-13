@@ -13,77 +13,81 @@ class OrdersFilterTypes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: GetBuilder<NewOrderController>(
           builder: (controller) {
             return Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                FilterWidget(
-                  onTap: () {
-                    showFilterBottomSheet(ListView(shrinkWrap: true, children: [
-                      Container(
-                          alignment: Alignment.center,
-                          child: const Text(
-                            "Low to high",
-                            style: TextStyle(
-                                color: AppStyle.radioColor, fontSize: 16),
-                          )),
-                      ...controller.sortList.map(
-                        (e) {
-                          return ListTile(
-                              leading: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: e['icon'],
-                              ),
-                              title: Text(e['label']),
-                              onTap: () {
-                                controller.sortValue.value = FilterServices()
-                                    .sortItems(
-                                        items: controller.searchItems,
-                                        value: e['value']);
-                                controller.filterValue('');
-                                controller.update();
-                                Get.back();
-                              });
-                        },
-                      ),
-                      Container(
-                          alignment: Alignment.center,
-                          child: const Text(
-                            "High to Low",
-                            style: TextStyle(
-                                color: AppStyle.radioColor, fontSize: 16),
-                          )),
-                      ...controller.reverseSortList.map(
-                        (e) {
-                          return ListTile(
-                              leading: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: e['icon'],
-                              ),
-                              title: Text(e['label']),
-                              onTap: () {
-                                controller.sortValue.value = FilterServices()
-                                    .reverseSortItems(
-                                        items: controller.searchItems,
-                                        value: e['value']);
-                                controller.filterValue('');
-                                controller.update();
-                                Get.back();
-                              });
-                        },
-                      )
-                    ]));
-                    // controller.updateFilterSelection(0);
-                  },
-                  color: controller.filterIndex.contains(0)
-                      ? AppStyle.primaryColor
-                      : null,
-                  child: const Text('Sort by'),
+                Expanded(
+                  child: FilterWidget(
+                    onTap: () {
+                      showFilterBottomSheet(ListView(shrinkWrap: true, children: [
+                        Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              "Low to high",
+                              style: TextStyle(
+                                  color: AppStyle.radioColor, fontSize: 16),
+                            )),
+                        ...controller.sortList.map(
+                              (e) {
+                            return ListTile(
+                                leading: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: e['icon'],
+                                ),
+                                title: Text(e['label']),
+                                onTap: () {
+                                  controller.sortValue.value = FilterServices()
+                                      .sortItems(
+                                      items: controller.searchItems,
+                                      value: e['value']);
+                                  controller.filterValue('');
+                                  controller.update();
+                                  Get.back();
+                                });
+                          },
+                        ),
+                        const Divider(),
+                        Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              "High to Low",
+                              style: TextStyle(
+                                  color: AppStyle.radioColor, fontSize: 16),
+                            )),
+                        ...controller.reverseSortList.map(
+                              (e) {
+                            return ListTile(
+                                leading: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: e['icon'],
+                                ),
+                                title: Text(e['label']),
+                                onTap: () {
+                                  controller.sortValue.value = FilterServices()
+                                      .reverseSortItems(
+                                      items: controller.searchItems,
+                                      value: e['value']);
+                                  controller.filterValue('');
+                                  controller.update();
+                                  Get.back();
+                                });
+                          },
+                        )
+                      ]));
+                      // controller.updateFilterSelection(0);
+                    },
+                    color: controller.filterIndex.contains(0)
+                        ? AppStyle.primaryColor
+                        : null,
+                    child: const Text('Sort by'),
+                  ),
                 ),
                 FilterWidget(
                   onTap: () {
@@ -107,14 +111,14 @@ class OrdersFilterTypes extends StatelessWidget {
                         },
                       ),
                       ...controller.categories.map(
-                        (e) {
+                            (e) {
                           return ListTile(
                             title: Text(e.name!),
                             onTap: () {
                               controller.searchItems = FilterServices()
                                   .filterByCategory(
-                                      items: controller.salesItems,
-                                      value: e.id!);
+                                  items: controller.salesItems,
+                                  value: e.id!);
                               controller
                                   .filterValue('Filter: Category (${e.name!})');
                               controller.sortValue('');
@@ -133,13 +137,13 @@ class OrdersFilterTypes extends StatelessWidget {
                         ),
                       ),
                       ...controller.brands.map(
-                        (e) {
+                            (e) {
                           return ListTile(
                             title: Text(e == '0' ? 'All' : e),
                             onTap: () {
                               controller.searchItems = FilterServices()
                                   .filterByBrand(
-                                      items: controller.salesItems, value: e);
+                                  items: controller.salesItems, value: e);
                               controller.filterValue(
                                   'Filter: Brand (${e == '0' ? 'All' : e})');
                               controller.sortValue('');

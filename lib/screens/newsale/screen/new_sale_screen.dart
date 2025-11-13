@@ -18,20 +18,13 @@ class NewSaleScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: customAppBar(
-        title: 'Sales Bill',
+        title: 'SALES BILL',
         sync: () async {
-          await Get.put(SyncController()).saveSync('sale');
-          final controller = Get.find<NewSaleController>();
-          await controller.getItems();
-          await controller.getUnits();
-          await controller.getCategories();
+          final syncController = Get.find<SyncController>();
+          await syncController.saveSync(SyncTypes.sale);
+          await Get.find<NewSaleController>().refreshAllData();
         },
-        refresh: () async {
-          final controller = Get.find<NewSaleController>();
-          await controller.getItems();
-          await controller.getUnits();
-          await controller.getCategories();
-        },
+        refresh: () => Get.find<NewSaleController>().refreshAllData(),
       ),
       drawer: const CustomMenu(),
       body: GetBuilder<NewSaleController>(
@@ -88,13 +81,14 @@ class NewSaleScreen extends StatelessWidget {
       ),
       bottomNavigationBar: GetBuilder<NewSaleController>(builder: (controller) {
         return BottomNavigationBar(
+            selectedFontSize: 15,
+            unselectedFontSize: 12,
             items: [
               BottomNavigationBarItem(
                   icon: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: SizedBox(
-                      height: 25,
-                      width: 25,
+                      height: 25,width: 25,
                       child: Image.asset(
                         AssetConstant.product,
                         color: controller.screenIndex == 0
@@ -105,29 +99,31 @@ class NewSaleScreen extends StatelessWidget {
                   ),
                   label: 'Items'),
               BottomNavigationBarItem(
-                  icon: Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(CupertinoIcons.cart),
+                icon: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Badge(
+                    label: Obx(() => Text(
+                      controller.addedItems.length.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
-                      if (controller.addedItems.isNotEmpty)
-                        CircleAvatar(
-                          backgroundColor: Colors.red,
-                          radius: 10,
-                          child: Text(
-                            controller.addedItems.length.toString(),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 14),
-                          ),
-                        )
-                    ],
+                    ),
+                    ),
+                    backgroundColor: Colors.red,
+                    isLabelVisible: controller.addedItems.isNotEmpty,
+                    child: const Icon(CupertinoIcons.cart, size: 22),
                   ),
-                  label: 'Cart'),
+                ),
+                label: 'Cart',
+              ),
             ],
             currentIndex: controller.screenIndex,
+            type: BottomNavigationBarType.fixed,
             selectedItemColor: AppStyle.primaryColor,
+            unselectedItemColor: Colors.black54,
+            iconSize: 23,
             onTap: (value) {
               controller.updateScreenIndex(value);
             });
@@ -141,38 +137,29 @@ class NewSaleView extends GetView<NewSaleController> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !controller.focusNode.hasFocus,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          return;
-        }
-        controller.focusNode.unfocus();
-      },
-      child: PopBlocker(
-        canPop: controller.bodyJson != null,
-        child: GestureDetector(
-          onTap: () {
-            FocusScope.of(context).unfocus();
+    return PopBlocker(
+      canPop: controller.bodyJson != null,
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: PopScope(
+          canPop: !controller.focusNode.hasFocus,
+          onPopInvoked: (didPop) {
+            if (didPop) return;
+            controller.focusNode.unfocus();
           },
           child: Scaffold(
             body: RefreshIndicator(
-              onRefresh: () async {
-                await controller.getItems();
-                await controller.getUnits();
-                await controller.getCategories();
-                await Future.delayed(const Duration(seconds: 1));
-              },
+              onRefresh: controller.refreshAllData,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    height: SizeConstant.screenHeight * .01,
+                    height: SizeConstant.screenHeight * 0.01,
                   ),
                   const InvoiceRow(),
                   const CustomerSelectorRow(),
                   const Padding(
-                    padding: EdgeInsets.all(18.0),
+                    padding: EdgeInsets.symmetric(vertical: 5,horizontal: 18),
                     child: ItemsSearchBar(),
                   ),
                   const ItemFilterTypes(),
@@ -238,48 +225,42 @@ class ItemsView extends GetView<NewSaleController> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !controller.focusNode.hasFocus,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          return;
-        }
-        controller.focusNode.unfocus();
-      },
+    return PopBlocker(
+      canPop: controller.bodyJson != null,
       child: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).unfocus();
-        },
-        child: Scaffold(
-          body: Obx(
-                () => controller.addedItems.isEmpty
-                ? const Center(
-              child: Text('Please add some items to cart'),
-            )
-                : RefreshIndicator(
-              onRefresh: () async {
-                await controller.getItems();
-                await controller.getUnits();
-                await controller.getCategories();
-                await Future.delayed(const Duration(seconds: 1));
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: SizeConstant.screenHeight * .01,
-                children: [
-                  const InvoiceRow(),
-                  const CustomerSelectorRow(),
-                  const Divider(
-                    color: Colors.black,
-                    thickness: .3,
-                  ),
-                  const Expanded(child: CartItemsList()),
-                  const TotalDetails(),
-                  const SalesButtonsRow(),
-                  SizedBox(
-                    height: SizeConstant.screenHeight * .02,
-                  )
-                ],
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: PopScope(
+          canPop: !controller.focusNode.hasFocus,
+          onPopInvoked: (didPop) {
+            if (didPop) return
+              controller.focusNode.unfocus();
+          },
+          child: Scaffold(
+            body: Obx(
+                  () => controller.addedItems.isEmpty
+                  ? const Center(
+                child: Text('Please add some items to cart'),
+              )
+                  : RefreshIndicator(
+                onRefresh: controller.refreshAllData,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: SizeConstant.screenHeight * .01,
+                  children: [
+                    const InvoiceRow(),
+                    const CustomerSelectorRow(),
+                    const Divider(
+                      color: Colors.black,
+                      thickness: .2,
+                    ),
+                    const Expanded(child: CartItemsList()),
+                    const TotalDetails(),
+                    const SalesButtonsRow(),
+                    SizedBox(
+                      height: SizeConstant.screenHeight * .02,
+                    )
+                  ],
+                ),
               ),
             ),
           ),

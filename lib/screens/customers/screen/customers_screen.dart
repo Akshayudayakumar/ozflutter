@@ -1,4 +1,4 @@
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ozone_erp/constants/constant.dart';
@@ -48,7 +48,7 @@ class CustomersView extends GetView<CustomersController> {
                       onPressed: () {
                         controller.search();
                       },
-                      icon: const Icon(Icons.arrow_back_ios_new_outlined)),
+                      icon: const Icon(CupertinoIcons.back)),
                   title: NoOutlineTextField(
                     autofocus: true,
                     controller: controller.searchController,
@@ -63,7 +63,7 @@ class CustomersView extends GetView<CustomersController> {
                           onPressed: () {
                             controller.search();
                           },
-                          icon: const Icon(Icons.search))
+                          icon: const Icon(CupertinoIcons.search))
                     ],
                     whiteIcon: true),
               )),
@@ -139,7 +139,7 @@ class CustomersView extends GetView<CustomersController> {
             },
             backgroundColor: AppStyle.floatingActionColor,
             foregroundColor: AppStyle.primaryColor,
-            child: const Icon(Icons.add),
+            child: const Icon(CupertinoIcons.add),
           ),
         ),
       );

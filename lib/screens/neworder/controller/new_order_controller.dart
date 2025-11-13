@@ -5,7 +5,10 @@ import 'package:ozone_erp/database/tables/transaction/txn_operations.dart';
 import 'package:ozone_erp/models/sale_types.dart';
 import 'package:ozone_erp/models/sales_body.dart' as sales_body;
 import 'package:ozone_erp/models/settings_model.dart';
-
+import 'package:ozone_erp/models/voucher_body.dart';
+import 'package:ozone_erp/routes/routes_class.dart';
+import 'package:ozone_erp/screens/sync/controller/sync_controller.dart';
+import 'package:ozone_erp/services/voucher_services.dart';
 import '../../../data/app_data.dart';
 import '../../../database/controller/user_controller.dart';
 import '../../../database/tables/export_insert.dart';
@@ -18,44 +21,78 @@ import '../../../utils/common_calculations.dart';
 import '../../../utils/utils.dart';
 
 class NewOrderController extends GetxController {
-//Initialize controller
+
   @override
   void onInit() {
+    super.onInit();
+    getArgumentsData();
     loading(false);
+    ordering('');
     getItems();
     getUnits();
     getCategories();
     Get.put<UserController>(UserController());
     InsertPriceListDetails().getPriceListDetails();
     payableAmount.addListener(_updateWidth);
-    super.onInit();
+    scrollController.addListener(_updateItemLength);
+    loadCartFromStorage();
+  }
+
+  Future<void>refreshAllData({bool runSync = false}) async{
+    if(runSync){
+      final syncController = Get.find<SyncController>();
+      await syncController.saveSync(SyncTypes.order);
+    }
+    await Future.wait([
+      getItems(),
+      getUnits(),
+      getCategories()
+    ]);
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   //dispose controller
   @override
   void dispose() {
     payableAmount.removeListener(_updateWidth);
+    scrollController.removeListener(_updateItemLength);
     super.dispose();
+  }
+
+  @override
+  void onClose(){
+    payableAmount.removeListener(_updateWidth);
+    scrollController.removeListener(_updateItemLength);
+    super.onClose();
   }
 
   //basic variables
   int screenIndex = 0;
-  var selectedCustomer = Customers().obs;
+  Rx<Customers> selectedCustomer = Customers().obs;
   double textFieldWidth = 25; // Initial width
   String radioValue = AppData().getSettings().cashType ?? 'Cash';
   String paymentMethod = 'upi';
-
-  // String gstType = 'included';
+  bool gstType = AppData().getTaxInclude();
   Rx<Items> selectedItem = Items().obs;
+  Rx<Customers> addedCustomer = Customers().obs;
   RxDouble grandTotal = 0.0.obs;
   Map<String, int> selectedQuantity = {};
+  Map<String, int> realQuantity = {};
+  Map<String, double> discount = {};
   RxBool loading = false.obs;
+  RxBool clearing = false.obs;
+  RxBool customerLoading = false.obs;
+  RxBool isDetailsVisible = false.obs;
   RxString ordering = ''.obs;
   RxString sortValue = ''.obs;
   RxString filterValue = ''.obs;
   Unit unit = Unit();
   sales_body.SalesBody? salesBody;
   PriceList priceList = PriceList();
+  String? bodyInvoice;
+  int showItems = 10;
+  SettingsModel settings = AppData().getSettings();
+  Map<String,dynamic>? bodyJson = Get.arguments;
 
   //TextControllers
   TextEditingController itemController = TextEditingController();
@@ -65,10 +102,12 @@ class NewOrderController extends GetxController {
   TextEditingController transactionController = TextEditingController();
   TextEditingController bankNameController = TextEditingController();
 
+  ScrollController scrollController = ScrollController();
+
   //Lists initializer
   List<Unit> units = [];
   List<Items> salesItems = [];
-  List<Items> addedItems = [];
+  RxList<Items> addedItems = <Items>[].obs;
   List<Items> searchItems = [];
   List<int> filterIndex = [];
   List<String> brands = [];
@@ -171,6 +210,13 @@ class NewOrderController extends GetxController {
 
   //focus nodes
   FocusNode focusNode = FocusNode();
+//get argument data
+  Future<void> getArgumentsData() async {
+    if (Get.arguments != null && Get.arguments is Customers) {
+      selectedCustomer.value = Get.arguments;
+    }
+    update();
+  }
 
   //get Functions
   Future<void> getUnits() async {
@@ -200,21 +246,56 @@ class NewOrderController extends GetxController {
   }
 
   Future<void> getItems() async {
-    loading.value = true;
-    salesItems = await InsertItems().getItems();
-    salesItems.sort((b, a) => (a.itemQty?.compareTo(b.itemQty ?? '') ?? 0));
-    searchItems = salesItems;
-    brands = salesItems.map((e) => e.brandId!).toSet().toList();
-    await getBillNumbers();
-    await getAllTax();
-    loading.value = false;
-    update();
+    try {
+      loading(true);
+      salesItems = await InsertItems().getItems();
+      salesItems.sort((b, a) => (a.itemQty?.compareTo(b.itemQty ?? '') ?? 0));
+      searchItems = salesItems;
+      brands = salesItems.map((e) => e.brandId!).toSet().toList();
+
+      for (var item in salesItems) {
+        realQuantity[item.id!] = int.parse(item.itemQty ?? '0');
+      }
+      await getBillNumbers();
+      await getAllTax();
+      await bodyToItems();
+    } catch (e) {
+      Utils().showToast(e.toString());
+    }
+    finally {
+      if (Get.isRegistered<NewOrderController>()) {
+        loading(false);
+        update();
+      }
+    }
   }
+
+  Future<void> bodyToItems() async {
+    if (bodyJson == null) return;
+    sales_body.SalesBody body = sales_body.SalesBody.fromJson(bodyJson!);
+    bodyInvoice = body.invoice;
+    radioValue = body.cashType ?? radioValue;
+    selectedCustomer.value =
+    await InsertCustomers().getCustomerById(body.customerId ?? '');
+    addedItems.value = List.generate(
+      body.salesitems?.length ?? 0,
+          (index) {
+        final item = salesItems.firstWhere(
+                (element) => element.id == body.salesitems?[index].itemId,
+            orElse: () => Items());
+        final salesItem = body.salesitems?[index];
+        return item.copyWith(
+            srate: salesItem?.rate?.toString(), itemQty: salesItem?.quantity);
+      },
+    );
+    updateGrandTotal();
+  }
+
 
   Future<void> getBillNumbers() async {
     billNumbers = await InsertBillNumber().getBillNumber();
     billNumber = billNumbers.firstWhere(
-        (element) => element.transaction == BillNumberTypes.order,
+            (element) => element.transaction == BillNumberTypes.order,
         orElse: () => Billnumber());
     salesBills.addAll([billNumber]);
     update();
@@ -257,11 +338,22 @@ class NewOrderController extends GetxController {
     update();
   }
 
-  // void updateGstType(String value) {
-  //   gstType = value;
-  //   updateGrandTotal();
-  //   update();
-  // }
+  void updateGstType(bool value) {
+    gstType = value;
+    updateGrandTotal();
+    update();
+  }
+
+  void _updateItemLength() {
+    if (showItems < searchItems.length) {
+      if (scrollController.position.maxScrollExtent ==
+          scrollController.position.pixels) {
+        showItems += 10;
+      }
+    }
+  }
+
+
 
   void updateBillType(String id) {
     billNumber = billNumbers.firstWhere((element) => element.id == id,
@@ -271,7 +363,7 @@ class NewOrderController extends GetxController {
 
   Tax getTaxById(String id) {
     final tax =
-        taxes.firstWhere((element) => element.gstid == id, orElse: () => Tax());
+    taxes.firstWhere((element) => element.gstid == id, orElse: () => Tax());
     return tax;
   }
 
@@ -283,11 +375,11 @@ class NewOrderController extends GetxController {
     grandTotal.value = 0.0;
     grandTotal.value = addedItems.map((e) {
       double value = CommonCalculations.calculateTotalRate(
-              rate:
-                  (double.parse(e.srate ?? '0') * (selectedQuantity[e.id] ?? 0))
-                      .toString(),
-              discount: e.priceDiscount ?? '0',
-              tax: getTaxById(e.taxId ?? ''))
+          rate:
+          (double.parse(e.srate ?? '0') * (selectedQuantity[e.id] ?? 0))
+              .toString(),
+          discount: e.priceDiscount ?? '0',
+          tax: getTaxById(e.taxId ?? ''))
           .toDouble();
       return value;
     }).reduce((value, element) => value + element);
@@ -314,19 +406,17 @@ class NewOrderController extends GetxController {
   String incrementInvoiceNumber(String currentInvoice) {
     final prefix = currentInvoice.replaceAll(RegExp(r'[0-9]'), '');
     final numberPart =
-        int.parse(currentInvoice.replaceAll(RegExp(r'[^0-9]'), ''));
+    int.parse(currentInvoice.replaceAll(RegExp(r'[^0-9]'), ''));
     final incrementedNumber = numberPart + 1;
 
     return '$prefix$incrementedNumber';
   }
 
-  Future<void> sendSMS() async {
-    if (AppData().getSettings().sendSMS ?? false) {
-      //TODO: send sms feature implement
+  Future<void> sendSMS(DateTime now) async {
+    if (settings.sendSMS ?? false) {
       String invoiceNumber =
-          '${billNumber.preffix ?? ''}${billNumber.seperator ?? ''}${billNumber.startnumber ?? ''}${billNumber.seperator ?? ''}${billNumber.suffix ?? ''}'
-              .trim();
-      DateTime now = DateTime.now();
+      '${billNumber.preffix ?? ''}${billNumber.seperator ?? ''}${billNumber.startnumber ?? ''}${billNumber.seperator ?? ''}${billNumber.suffix ?? ''}'
+          .trim();
       String formattedDate =
           '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
       String message =
@@ -338,6 +428,43 @@ class NewOrderController extends GetxController {
           message: message);
     }
   }
+  sales_body.SalesBody itemToSalesBody(String? taxTotal, [Position? position]) {
+    final body = sales_body.SalesBody.fromJson(bodyJson!);
+    return body.copyWith(
+      cashType: radioValue,
+      latitude: position?.latitude.toString() ?? '',
+      longitude: position?.longitude.toString() ?? '',
+      total: grandTotal.value.toString(),
+      taxtotal: taxTotal,
+      customerAddress: selectedCustomer.value.addressLine1,
+      customerPhone: selectedCustomer.value.phone,
+      salesitems: addedItems.map((e) {
+        return sales_body.SalesItems(
+            tax: e.taxId,
+            total:
+            (double.parse(e.srate ?? '0') * double.parse(e.itemQty ?? '0'))
+                .toString(),
+            quantity: e.itemQty,
+            baseUnitId: e.unitId,
+            ces: e.cessId ?? '0',
+            cesAmt: double.parse(e.cesPercent ?? '0'),
+            discount: e.priceDiscount,
+            itemId: e.id,
+            itmCesId: e.cesId,
+            itmCesName: e.cesName ?? '',
+            prate: e.prate,
+            published: e.published,
+            taxId: e.taxId,
+            unitId: e.unitId,
+            godown: double.parse(e.godown ?? '0'),
+            itmCesPer: double.parse(e.cesPercent ?? '0'),
+            itmRawCess: double.parse(e.cessId!),
+            mrp: double.parse(e.mrp!),
+            rate: double.parse(e.srate!));
+      }).toList(),
+    );
+  }
+
 
   Future<bool> updateSalesBody() async {
     DateTime now = DateTime.now();
@@ -347,8 +474,8 @@ class NewOrderController extends GetxController {
     if (save == SavePayment.abort) return false;
     ordering('Getting invoice');
     String invoiceNumber =
-        '${billNumber.preffix ?? ''}${billNumber.seperator ?? ''}${billNumber.startnumber ?? ''}${billNumber.seperator ?? ''}${billNumber.suffix ?? ''}'
-            .trim();
+    '${billNumber.preffix ?? ''}${billNumber.seperator ?? ''}${billNumber.startnumber ?? ''}${billNumber.seperator ?? ''}${billNumber.suffix ?? ''}'
+        .trim();
     ordering('Calculating tax');
     double taxTotal = 0.0;
     if (!AppData().getTaxInclude()) {
@@ -397,7 +524,7 @@ class NewOrderController extends GetxController {
         invoice: invoiceNumber,
         refId: '0',
         createdDate:
-            '$formattedDate ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+        '$formattedDate ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
         narration: '0',
         salesOrderId: '0',
         salesRefType: '0',
@@ -454,9 +581,12 @@ class NewOrderController extends GetxController {
             .toString(),
       ),
     );
-    await sendSMS();
+
+    await sendSMS(now);
+
     if (AppData().getSettings().syncOnSave ?? false) {
-      //TODO: Send data to server
+
+      //Send data to server
       ordering('Uploading to server');
       final result = await SalesRepository().createSales(salesBody!);
       await result.fold((data) async {
@@ -472,14 +602,32 @@ class NewOrderController extends GetxController {
   //other functions
   void selectCustomer(Customers customer) async {
     selectedCustomer.value = customer;
+    priceList =
+    await InsertPriceList().getPriceListById(customer.priceList ?? '');
+    saveCartToStorage();
     update();
   }
 
+
+  void saveCartToStorage() {
+
+    try {
+      List<Map<String, dynamic>> itemsJson =
+      addedItems.map((item) => item.toJson()).toList();
+
+      AppData().storeCartItems(itemsJson);
+      AppData().storeCartQuantities(selectedQuantity);
+
+      if (selectedCustomer.value.name != null) {
+        AppData().storeCartCustomer(selectedCustomer.value.toJson());
+      }
+    } catch (e) {
+      print('Error saving cart to storage: $e');
+    }
+  }
   void selectItem(Items item) {
     selectedItem.value = item;
   }
-
-  SettingsModel settings = AppData().getSettings();
 
   void incrementItemQuantity(Items item) {
     int incrementQuantity = (settings.incrementQty?.isEmpty ?? true)
@@ -511,6 +659,7 @@ class NewOrderController extends GetxController {
     update();
   }
 
+
   void addItem(Items item) {
     if (selectedQuantity[item.id!] == null) {
       selectedQuantity.addAll({item.id!: 1});
@@ -531,7 +680,7 @@ class NewOrderController extends GetxController {
   void searchItem(String query) {
     searchItems = salesItems
         .where((item) =>
-            item.name!.toLowerCase().contains(query.trim().toLowerCase()))
+        item.name!.toLowerCase().contains(query.trim().toLowerCase()))
         .toList();
     update();
   }
@@ -542,29 +691,118 @@ class NewOrderController extends GetxController {
     itemController.clear();
     update();
   }
+  void setUpiId() {
+    TextEditingController upiIdController = TextEditingController();
+    showDialog(
+      context: Get.context!,
+      builder: (context) => AlertDialog(
+        title: const Text('Set UPI ID'),
+        content: TextField(
+          controller: upiIdController,
+          decoration: const InputDecoration(
+            labelText: 'UPI ID',
+            hintText: 'Enter UPI ID to receive Payment',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () {
+                Get.back();
+              },
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () async {
+                if (RegExpressions.upiRegex
+                    .hasMatch(upiIdController.text.trim()) &&
+                    !upiIdController.text.trim().contains('.com')) {
+                  AppData().storeUpiID(upiIdController.text.trim());
+                  Get.back();
+                  await updateSalesBody();
+                  Get.toNamed(RoutesName.pdfView,
+                      arguments: {'invoice': getInvoice()});
+                } else {
+                  Utils().showToast('Enter valid UPI ID');
+                }
+              },
+              child: const Text('Set')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> createVoucher(
+      {String latitude = '',
+        String longitude = '',
+        required String amount,
+        required DateTime date,
+        required String narration}) async {
+    ordering('Creating Voucher');
+    final voucherBill = await InsertBillNumber()
+        .getBillNumberByType(BillNumberTypes.quickPayment);
+    String invoiceNumber =
+    '${voucherBill.preffix ?? ''}${voucherBill.seperator ?? ''}${voucherBill.startnumber ?? ''}${voucherBill.seperator ?? ''}${voucherBill.suffix ?? ''}'
+        .trim();
+    String time = '${date.day}-${date.month}-${date.year}';
+    VoucherBody body = VoucherBody(
+      aeging: [],
+      amount: amount,
+      billType: voucherBill.id,
+      createdBy: AppData().getUserID(),
+      date: time,
+      latitude: latitude,
+      longitude: longitude,
+      narration: narration,
+      toid: selectedCustomer.value.id,
+      type: VoucherTypes.payment,
+      vid: invoiceNumber,
+      voucherId: '0',
+      loginUserId: AppData().getUserID(),
+    );
+
+    // await InsertVouchers().insertVouchers(body);
+    // await InsertBillNumber().updateBillNumber(voucherBill.copyWith(
+    //     startnumber: (double.parse(voucherBill.startnumber ?? '0') + 1)
+    //         .round()
+    //         .toString()));
+    // await VoucherBodySync().insertVoucherBodySync(id: invoiceNumber, status: 0);
+    await TxnOperations().createNewSaleVoucher(
+        voucher: body,
+        billNumber: voucherBill.copyWith(
+            startnumber: (double.parse(voucherBill.startnumber ?? '0') + 1)
+                .round()
+                .toString()));
+
+    if (AppData().getSettings().syncOnSave ?? false) {
+      final result = await VoucherRepository().createPaymentVoucher(body);
+      result.fold((data) async {
+        await VoucherBodySync()
+            .updateVoucherBodySync(id: invoiceNumber, status: 1);
+      }, (error) {});
+    }
+  }
 
   confirmNewSale() {
     if (selectedCustomer.value.name != null || addedItems.isNotEmpty) {
       showDialog(
           context: Get.context!,
           builder: (context) => AlertDialog(
-                title: const Text('Are you sure?'),
-                content: const Text(
-                    'Your current sales will not be saved!. And will lose all data.'),
-                actions: [
-                  TextButton(
-                      onPressed: () {
-                        Get.back();
-                      },
-                      child: const Text('Cancel')),
-                  TextButton(
-                      onPressed: () {
-                        clearSales();
-                        Get.back();
-                      },
-                      child: const Text('Clear')),
-                ],
-              ));
+            title: const Text('Are you sure?'),
+            content: const Text(
+                'Your current sales will not be saved!. And will lose all data.'),
+            actions: [
+              TextButton(
+                  onPressed: () {
+                    Get.back();
+                  },
+                  child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () {
+                    clearSales();
+                    Get.back();
+                  },
+                  child: const Text('Clear')),
+            ],
+          ));
     }
   }
 
@@ -612,6 +850,36 @@ class NewOrderController extends GetxController {
     // gstType = 'included';
     radioValue = 'Cash';
     grandTotal(0.0);
+    AppData().clearCartData();
     update();
   }
+
+  void loadCartFromStorage() {
+    try {
+
+      List<Map<String, dynamic>> savedItems = AppData().getCartItems();
+      if (savedItems.isNotEmpty) {
+        addedItems.value =
+            savedItems.map((json) => Items.fromJson(json)).toList();
+      }
+
+
+      selectedQuantity = AppData().getCartQuantities();
+
+
+      Map<String, dynamic>? customerJson = AppData().getCartCustomer();
+      if (customerJson != null) {
+        selectedCustomer.value = Customers.fromJson(customerJson);
+      }
+
+
+      if (addedItems.isNotEmpty) {
+        updateGrandTotal();
+      }
+    } catch (e) {
+      print('Error loading cart from storage: $e');
+    }
+  }
+
+
 }

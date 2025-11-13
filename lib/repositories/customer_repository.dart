@@ -19,6 +19,8 @@ class CustomerRepository {
     required String type,
     double? latitude,
     double? longitude,
+    required String customerRate,
+    required String remarks
   }) async {
     try {
       DioResponse dioResponse = await CustomerServices().addCustomer(
@@ -31,7 +33,9 @@ class CustomerRepository {
           priceList: priceList,
           type: type,
           latitudeValue: latitude,
-          longitudeValue: longitude);
+          longitudeValue: longitude,
+          customerRate: customerRate,
+          remarks: remarks);
       if (!dioResponse.hasError) {
         bool success = dioResponse.response!.data['status'];
         if (success) {

@@ -21,6 +21,7 @@ AppBar customAppBar({
   VoidCallback? sync,
   String? syncTitle,
   Brightness? statusIconBrightness,
+  IconButton? iconButton,
 }) {
   String? route;
   // Check if a CustomMenuController is registered with GetX.
@@ -35,6 +36,7 @@ AppBar customAppBar({
   return AppBar(
     toolbarHeight: 55.h,
     iconTheme: iconTheme,
+    leading: iconButton,
     systemOverlayStyle: SystemUiOverlayStyle(
       // Set the color of the status bar.
       statusBarColor: color ?? AppStyle.primaryColor,

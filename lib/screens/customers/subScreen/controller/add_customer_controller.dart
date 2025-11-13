@@ -6,6 +6,7 @@ import 'package:ozone_erp/models/state_model.dart';
 import 'package:ozone_erp/services/customer_services.dart';
 import '../../../../api/api.dart';
 import '../../../../database/tables/export_insert.dart';
+import '../../../../routes/routes_class.dart';
 import '../../../../services/location_services.dart';
 import '../../../../services/sync_services.dart';
 import '../../../../utils/utils.dart';
@@ -16,12 +17,17 @@ class CustomerTypes {
 
   CustomerTypes({required this.id, required this.name});
 }
-
+class CustomerRates {
+  final String id;
+  final String value;
+  CustomerRates({required this.id, required this.value});
+}
 class AddCustomerController extends GetxController {
   TextEditingController nameController = TextEditingController();
   TextEditingController addressController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
   TextEditingController gstController = TextEditingController();
+  TextEditingController remarksController = TextEditingController();
   Rx<StateModel> state = StateModel.loading.obs;
   Rx<StateModel> submitState = StateModel.success.obs;
   RxString errorMessage = ''.obs;
@@ -30,13 +36,23 @@ class AddCustomerController extends GetxController {
   RxString type = 'cus'.obs;
   RxList<Area> areas = <Area>[].obs;
   RxList<PriceList> priceLists = <PriceList>[].obs;
-RxDouble latitude = 0.0.obs;
-RxDouble longitude = 0.0.obs;
-RxBool isLocationLoading = false.obs;
+  RxList<CustomerRate> customerRate = <CustomerRate>[].obs;
+  RxDouble latitude = 0.0.obs;
+  RxDouble longitude = 0.0.obs;
+  RxBool isLocationLoading = false.obs;
+
 
   List<CustomerTypes> customerTypes = [
     CustomerTypes(id: 'cus', name: 'Customer'),
-    CustomerTypes(id: 'sup', name: 'Supplier'),
+    CustomerTypes(id: 's' , name: 'Supplier'),
+  ];
+
+  List<CustomerRates> customerRates = [
+    CustomerRates(id: 'srate', value: 'Srate'),
+    CustomerRates(id: 'MRP', value:'MPR'),
+    CustomerRates(id: 'wh_rate', value:'Wholesale Rate'),
+    CustomerRates(id: 'special_rate', value:'Special Rate'),
+    CustomerRates(id: 'last_srate', value:'Last Sales Rate')
   ];
 
   final formKey = GlobalKey<FormState>();
@@ -47,9 +63,9 @@ RxBool isLocationLoading = false.obs;
     addressController.dispose();
     phoneController.dispose();
     gstController.dispose();
+    remarksController.dispose();
     super.onClose();
   }
-
 
   Future<void> getAreas() async {
     state.value = StateModel.loading;
@@ -62,10 +78,19 @@ RxBool isLocationLoading = false.obs;
     state.value = StateModel.success;
   }
 
+  Future<void> getLocation() async {
+    isLocationLoading.value = true;
+    final position = await LocationServices().getCurrentPosition();
+    latitude.value = position.latitude;
+    longitude.value = position.longitude;
+    isLocationLoading.value = false;
+  }
+
   @override
   void onInit() {
     super.onInit();
     getAreas();
+    getLocation();
   }
 
   void selectArea(String area) {
@@ -87,6 +112,8 @@ RxBool isLocationLoading = false.obs;
     if (formKey.currentState!.validate()) {
       submitState(StateModel.loading);
       formKey.currentState?.save();
+      await LocationRepository().getLocation();
+
       final result = await CustomerRepository().addCustomer(
           name: nameController.text.trim(),
           phone: phoneController.text.trim(),
@@ -96,27 +123,35 @@ RxBool isLocationLoading = false.obs;
           priceList: priceList.value,
           type: type.value,
           latitude: latitude.value,
-          longitude: longitude.value
+          longitude: longitude.value,
+          customerRate: customerRates
+              .firstWhere((element) => element.id == type.value,
+              orElse: () => CustomerRates(id: '0', value: '0'))
+              .value,
+          remarks: remarksController.text.trim()
       );
-      await result.fold((data) async {
-        await getCustomerDetails();
-        Get.back(
-            result: Customers(
-                name: nameController.text.trim(),
-                phone: phoneController.text.trim(),
-                addressLine1: addressController.text.trim(),
-                gst: gstController.text.trim(),
-                area: area.value,
-                priceList: priceList.value,
-                type: type.value,
-            latitude: latitude.value.toString(),
-              longitude: longitude.value.toString(),
-            ));
-        submitState(StateModel.success);
-      }, (error) {
+      await result.fold((error) {
         submitState(StateModel.error);
-        errorMessage(error);
-      });
+        errorMessage('Something went wrong, Please try again');
+      },(data) async{
+        await getCustomerDetails();
+        print('Customer Added Successfully $data');
+        Get.offAllNamed(RoutesName.newOrder,arguments:data);
+        submitState(StateModel.success);
+      }
+        // Get.back(
+        //     result: Customers(
+        //         name: nameController.text.trim(),
+        //         phone: phoneController.text.trim(),
+        //         addressLine1: addressController.text.trim(),
+        //         gst: gstController.text.trim(),
+        //         area: area.value,
+        //         priceList: priceList.value,
+        //         type: type.value,
+        //     latitude: latitude.value.toString(),
+        //       longitude: longitude.value.toString(),
+        //     ));
+      );
     }
   }
 

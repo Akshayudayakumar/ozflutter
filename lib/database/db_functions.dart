@@ -112,6 +112,7 @@ class DBFunctions {
   static const String tableVouchers = 'voucher';
   static const String tablePayments = 'payments';
   static const String returnLog = 'return_log';
+  static const String tableCustomerRate = 'customer_rate';
 
   //Create a table
 
@@ -246,6 +247,16 @@ class DBFunctions {
       id TEXT PRIMARY KEY,
       price_list TEXT,
       note TEXT,
+      published TEXT
+    )
+  ''');
+  }
+  Future<void> createCustomerRateTable(Database db) async {
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS $tableCustomerRate (
+      id TEXT PRIMARY KEY,
+      rate_value TEXT,
+      rate_name TEXT,
       published TEXT
     )
   ''');
@@ -912,6 +923,7 @@ class DBFunctions {
     await createCustomersTable(db);
     await createPriceListDetailsTable(db);
     await createPriceListTable(db);
+    await createCustomerRateTable(db);
 
     //Sales Body
     await createSalesBodyTable(db);

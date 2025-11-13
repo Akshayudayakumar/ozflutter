@@ -316,6 +316,8 @@ class Customers{
     dynamic addressLine1Lan,
     dynamic addressLine2Lan,
     String? pincode,
+    String? customerRate,
+    String? remarks,
     String? isActive,
   }) {
     _id = id;
@@ -363,6 +365,8 @@ class Customers{
     _addressLine1Lan = addressLine1Lan;
     _addressLine2Lan = addressLine2Lan;
     _pincode = pincode;
+    _customerRate = customerRate;
+    _remarks = remarks;
     _isActive = isActive;
   }
 
@@ -412,6 +416,8 @@ class Customers{
     _addressLine1Lan = json['address_line1_lan'];
     _addressLine2Lan = json['address_line2_lan'];
     _pincode = json['pincode'];
+    _customerRate = json['customer_rate'];
+    _remarks = json['remarks'];
     _isActive = json['is_active'];
   }
   String? _id;
@@ -459,6 +465,8 @@ class Customers{
   dynamic _addressLine1Lan;
   dynamic _addressLine2Lan;
   String? _pincode;
+  String? _customerRate;
+  String? _remarks;
   String? _isActive;
   Customers copyWith({
     String? id,
@@ -506,6 +514,8 @@ class Customers{
     dynamic addressLine1Lan,
     dynamic addressLine2Lan,
     String? pincode,
+    String? customerRate,
+    String? remarks,
     String? isActive,
   }) =>
       Customers(
@@ -554,6 +564,8 @@ class Customers{
         addressLine1Lan: addressLine1Lan ?? _addressLine1Lan,
         addressLine2Lan: addressLine2Lan ?? _addressLine2Lan,
         pincode: pincode ?? _pincode,
+        customerRate: customerRate ?? _customerRate,
+        remarks: remarks ?? _remarks,
         isActive: isActive ?? _isActive,
       );
   String? get id => _id;
@@ -601,6 +613,8 @@ class Customers{
   dynamic get addressLine1Lan => _addressLine1Lan;
   dynamic get addressLine2Lan => _addressLine2Lan;
   String? get pincode => _pincode;
+  String? get customerRate => _customerRate;
+  String? get remarks => _remarks;
   String? get isActive => _isActive;
 
   Map<String, dynamic> toJson() {
@@ -650,6 +664,8 @@ class Customers{
     map['address_line1_lan'] = _addressLine1Lan;
     map['address_line2_lan'] = _addressLine2Lan;
     map['pincode'] = _pincode;
+    map['customer_rate'] = _customerRate;
+    map['remarks'] = _remarks;
     map['is_active'] = _isActive;
     return map;
   }

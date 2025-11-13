@@ -2628,6 +2628,74 @@ class Unit {
 /// ces_percent : "0.000"
 /// ces_id : null
 
+
+class CustomerRate{
+  CustomerRate({
+    String? rateId,
+    String? customerId,
+    String? itemId,
+    String? rate,
+    String? published,
+    String? updatedate,
+  }) {
+    _rateId = rateId;
+    _customerId = customerId;
+    _itemId = itemId;
+    _rate = rate;
+    _published = published;
+    _updatedate = updatedate;
+  }
+
+  CustomerRate.fromJson(dynamic json) {
+    _rateId = json['rate_id'];
+    _customerId = json['customer_id'];
+    _itemId = json['item_id'];
+    _rate = json['rate'];
+    _published = json['published'];
+    _updatedate = json['updatedate'];
+  }
+  String? _rateId;
+  String? _customerId;
+  String? _itemId;
+  String? _rate;
+  String? _published;
+  String? _updatedate;
+  CustomerRate copyWith({
+    String? rateId,
+    String? customerId,
+    String? itemId,
+    String? rate,
+    String? published,
+    String? updatedate,
+  }) =>
+      CustomerRate(
+        rateId: rateId ?? _rateId,
+        customerId: customerId ?? _customerId,
+        itemId: itemId ?? _itemId,
+        rate: rate ?? _rate,
+        published: published ?? _published,
+        updatedate: updatedate ?? _updatedate,
+      );
+  String? get rateId => _rateId;
+  String? get customerId => _customerId;
+  String? get itemId => _itemId;
+  String? get rate => _rate;
+  String? get published => _published;
+  String? get updatedate => _updatedate;
+
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{};
+    map['rate_id'] = _rateId;
+    map['customer_id'] = _customerId;
+    map['item_id'] = _itemId;
+    map['rate'] = _rate;
+    map['published'] = _published;
+    map['updatedate'] = _updatedate;
+    return map;
+  }
+}
+
+
 class Tax {
   Tax({
     String? gstid,

@@ -7,6 +7,8 @@ class ShadowBox extends StatelessWidget {
   final double curveRadius;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
+  final Border? border;
+
 
   const ShadowBox({
     super.key,
@@ -16,6 +18,7 @@ class ShadowBox extends StatelessWidget {
     this.curveRadius = 12,
     this.padding,
     this.margin,
+    this.border
   });
 
   @override
@@ -28,6 +31,7 @@ class ShadowBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(curveRadius),
+        border: border,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withAlpha(100),
